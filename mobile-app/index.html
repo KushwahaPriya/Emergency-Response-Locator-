@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Emergency Response System</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+body { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height:100vh; font-family:'Inter',sans-serif; color:#fff; }
+.main-container { background: rgba(255,255,255,0.1); backdrop-filter: blur(20px); border:1px solid rgba(255,255,255,0.2); border-radius:24px; box-shadow:0 8px 32px rgba(31,38,135,0.37); margin:20px auto; max-width:420px; padding:30px;}
+.app-title { font-weight:700; font-size:1.8rem; text-align:center; margin-bottom:20px; text-shadow:0 2px 4px rgba(0,0,0,0.3);}
+.location-card { background: rgba(255,255,255,0.15); border-radius:16px; padding:20px; margin-bottom:20px; border:1px solid rgba(255,255,255,0.2);}
+.location-card h5 { font-weight:600; margin-bottom:10px; display:flex; align-items:center; gap:8px;}
+.location-display { background: rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.3); border-radius:12px; color:#fff; font-family:'Courier New',monospace; font-size:0.9rem; padding:10px; resize:none; width:100%;}
+.refresh-btn { background: rgba(255,255,255,0.2); border:1px solid rgba(255,255,255,0.3); border-radius:8px; color:#fff; font-weight:500; margin-top:10px; transition: all 0.3s ease;}
+.refresh-btn:hover { background: rgba(255,255,255,0.3); border-color: rgba(255,255,255,0.5); color:#fff; transform: translateY(-2px);}
+.emergency-section h5 { font-weight:600; margin-bottom:15px; text-align:center;}
+.emergency-btn { border:none; border-radius:16px; color:#fff; font-size:1.1rem; font-weight:600; padding:15px 20px; margin-bottom:10px; text-align:left; transition:all 0.3s ease; width:100%; position:relative; overflow:hidden;}
+.emergency-btn i { font-size:1.3rem; margin-right:10px;}
+.status-alert { border-radius:12px; border:none; font-weight:500; margin-top:15px; padding:12px; text-align:center;}
+.pulse { animation:pulse 2s infinite;}
+@keyframes pulse {0%{transform:scale(1);}50%{transform:scale(1.05);}100%{transform:scale(1);}}
+.loading-spinner { display:inline-block; width:18px; height:18px; border:3px solid #ffffff; border-radius:50%; border-top-color:transparent; animation:spin 1s ease-in-out infinite; margin-right:8px;}
+@keyframes spin {to{transform:rotate(360deg);}}
+.footer { text-align:center; margin-top:20px; opacity:0.8; font-size:0.9rem;}
+.medical {background: linear-gradient(135deg, #ff6b6b, #ee5a52);}
+.fire {background: linear-gradient(135deg, #ffa726, #ff8a65);}
+.police {background: linear-gradient(135deg, #42a5f5, #1e88e5);}
+.general {background: linear-gradient(135deg, #66bb6a, #43a047);}
+.alert-list { max-height:200px; overflow-y:auto; margin-top:15px;}
+.search-box { margin-bottom:10px; padding:5px 10px; border-radius:8px; border:none; width:100%; font-size:0.95rem;}
+</style>
+</head>
+<body>
+<div class="container-fluid d-flex align-items-center justify-content-center min-vh-100">
+<div class="main-container">
+<div class="app-title"><i class="fas fa-shield-alt"></i> Emergency Response</div>
+
+<div class="location-card">
+<h5><i class="fas fa-map-marker-alt"></i> Current Location</h5>
+<textarea id="location-display" class="location-display" rows="3" readonly placeholder="Detecting location..."></textarea>
+<button id="refresh-location" class="btn refresh-btn"><i class="fas fa-sync-alt"></i> Refresh Location</button>
+</div>
+
+<div class="emergency-section">
+<h5>Select Emergency Type</h5>
+<button id="btn-medical" class="btn emergency-btn medical"><i class="fas fa-ambulance"></i> Medical Emergency</button>
+<button id="btn-fire" class="btn emergency-btn fire"><i class="fas fa-fire"></i> Fire Emergency</button>
+<button id="btn-police" class="btn emergency-btn police"><i class="fas fa-shield-alt"></i> Police Emergency</button>
+<button id="btn-general" class="btn emergency-btn general"><i class="fas fa-exclamation-triangle"></i> General Emergency</button>
+</div>
+
+<input type="text" id="search-box" class="search-box" placeholder="Search alerts by type or location...">
+<div id="status-container"></div>
+<div id="alert-list" class="alert-list"></div>
+
+<div class="footer"><i class="fas fa-lock"></i> Secure Emergency Response System</div>
+</div>
+</div>
+
+<script>
+let currentLocation = null;
+const locationDisplay = document.getElementById('location-display');
+const statusContainer = document.getElementById('status-container');
+const alertListDiv = document.getElementById('alert-list');
+const searchBox = document.getElementById('search-box');
+
+let allAlerts = [];
+
+function showStatus(message,type='info',persistent=false){
+    const alertClass={'success':'alert-success','error':'alert-danger','warning':'alert-warning','info':'alert-info','loading':'alert-primary'}[type]||'alert-info';
+    const spinner=type==='loading'?'<span class="loading-spinner"></span>':'';
+    statusContainer.innerHTML=`<div class="alert ${alertClass} status-alert">${spinner}${message}</div>`;
+    if(!persistent && type!=='loading'){ setTimeout(()=>{statusContainer.innerHTML='';}, type==='error'?5000:3000);}
+}
+
+// Nearby locations
+const fixedLocations = ['Guna','Awan','Raghogarh','Bus Stand'];
+
+function getCurrentLocation(){
+    showStatus('Detecting nearby location...','loading');
+    const randomIndex = Math.floor(Math.random()*fixedLocations.length);
+    currentLocation = fixedLocations[randomIndex];
+    const now = new Date();
+    locationDisplay.value = `📍 Nearby area: ${currentLocation}\n⏰ Updated: ${now.toLocaleString()}`;
+    showStatus('Nearby location detected successfully!','success');
+}
+
+// Send emergency alert (frontend only)
+function sendEmergencyAlert(type){
+    if(!currentLocation){ showStatus('Please detect location first','warning'); return; }
+    const button = document.getElementById(`btn-${type}`);
+    button.classList.add('pulse');
+    showStatus('Sending emergency alert...','loading');
+
+    const now = new Date();
+    const alertData = { type, location: currentLocation, timestamp: now.toLocaleString() };
+    allAlerts.push(alertData);
+
+    setTimeout(()=>{
+        showStatus(`✅ Alert sent!
+🚨 Type: ${type.toUpperCase()}
+⏰ Time: ${alertData.timestamp}
+📍 Nearby area: ${alertData.location}`,'success',true);
+        button.classList.remove('pulse');
+        displayAlerts();
+    },1000);
+}
+
+// Display alerts
+function displayAlerts(filter=''){
+    let html='';
+    const filtered = allAlerts.filter(a=> a.type.toLowerCase().includes(filter.toLowerCase()) || a.location.toLowerCase().includes(filter.toLowerCase()));
+    filtered.forEach(a=>{
+        html+=`<div class="alert alert-secondary p-2 mb-1">🚨 <b>${a.type.toUpperCase()}</b> | 📍 ${a.location} | ⏰ ${a.timestamp}</div>`;
+    });
+    alertListDiv.innerHTML = html;
+}
+
+// Search
+searchBox.addEventListener('input', (e)=>{ displayAlerts(e.target.value); });
+
+// Event listeners
+document.getElementById('refresh-location').addEventListener('click', getCurrentLocation);
+['medical','fire','police','general'].forEach(type=>document.getElementById(`btn-${type}`).addEventListener('click',()=>sendEmergencyAlert(type)));
+
+// Init
+document.addEventListener('DOMContentLoaded',()=>{ getCurrentLocation(); });
+</script>
+</body>
+</html>
